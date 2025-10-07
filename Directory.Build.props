@@ -1,0 +1,6 @@
+<Project>
+  <!-- Suppress MSB3539 warning by setting output paths early -->
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);MSB3539</NoWarn>
+  </PropertyGroup>
+</Project>

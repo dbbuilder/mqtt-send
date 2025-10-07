@@ -1,0 +1,123 @@
+{
+  "sources": [
+    {
+      "name": "TableA",
+      "enabled": true,
+      "tableName": "TableA",
+      "schema": "dbo",
+      "description": "Temperature sensor data",
+
+      "tracking": {
+        "method": "tracking_table",
+        "trackingTable": "MqttSentRecords"
+      },
+
+      "query": {
+        "primaryKey": "RecordId",
+        "monitorIdColumn": "MonitorId",
+        "whereClause": "1=1",
+        "orderBy": "CreatedAt ASC",
+        "batchSize": 100,
+        "pollingIntervalSeconds": 2
+      },
+
+      "mqtt": {
+        "topicPattern": "data/tableA/{MonitorId}",
+        "qos": 1,
+        "retain": false
+      },
+
+      "fieldMapping": {
+        "RecordId": "RecordId",
+        "MonitorId": "MonitorId",
+        "SensorType": "SensorType",
+        "Temperature": "Value",
+        "Unit": "Unit",
+        "Location": "Location",
+        "Timestamp": "Timestamp"
+      }
+    },
+    {
+      "name": "TableB",
+      "enabled": true,
+      "tableName": "TableB",
+      "schema": "dbo",
+      "description": "Pressure sensor data",
+
+      "tracking": {
+        "method": "tracking_table",
+        "trackingTable": "MqttSentRecords"
+      },
+
+      "query": {
+        "primaryKey": "RecordId",
+        "monitorIdColumn": "MonitorId",
+        "whereClause": "1=1",
+        "orderBy": "CreatedAt ASC",
+        "batchSize": 100,
+        "pollingIntervalSeconds": 2
+      },
+
+      "mqtt": {
+        "topicPattern": "data/tableB/{MonitorId}",
+        "qos": 1,
+        "retain": false
+      },
+
+      "fieldMapping": {
+        "RecordId": "RecordId",
+        "MonitorId": "MonitorId",
+        "SensorType": "SensorType",
+        "Pressure": "Value",
+        "Unit": "Unit",
+        "Location": "Location",
+        "Timestamp": "Timestamp"
+      }
+    },
+    {
+      "name": "TableC",
+      "enabled": true,
+      "tableName": "TableC",
+      "schema": "dbo",
+      "description": "Flow sensor data",
+
+      "tracking": {
+        "method": "tracking_table",
+        "trackingTable": "MqttSentRecords"
+      },
+
+      "query": {
+        "primaryKey": "RecordId",
+        "monitorIdColumn": "MonitorId",
+        "whereClause": "1=1",
+        "orderBy": "CreatedAt ASC",
+        "batchSize": 100,
+        "pollingIntervalSeconds": 2
+      },
+
+      "mqtt": {
+        "topicPattern": "data/tableC/{MonitorId}",
+        "qos": 1,
+        "retain": false
+      },
+
+      "fieldMapping": {
+        "RecordId": "RecordId",
+        "MonitorId": "MonitorId",
+        "SensorType": "SensorType",
+        "FlowRate": "Value",
+        "Unit": "Unit",
+        "Location": "Location",
+        "Timestamp": "Timestamp"
+      }
+    }
+  ],
+
+  "global_settings": {
+    "enable_parallel_processing": true,
+    "max_concurrent_sources": 3,
+    "connection_string": "Server=localhost,1433;Database=MqttBridge;User Id=sa;Password=YourStrong@Passw0rd;Encrypt=False;TrustServerCertificate=True;MultipleActiveResultSets=True",
+    "mqtt_broker": "localhost",
+    "mqtt_port": 1883
+  }
+}

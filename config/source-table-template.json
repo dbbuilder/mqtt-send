@@ -1,0 +1,48 @@
+{
+  "name": "TableName",
+  "enabled": true,
+  "tableName": "YourTableName",
+  "schema": "dbo",
+  "description": "Description of this data source",
+
+  "tracking": {
+    "method": "status_column | sent_flag | tracking_table",
+
+    "// FOR status_column method": "",
+    "statusColumn": "Status",
+    "sentValue": "Sent",
+    "pendingValue": "Pending",
+    "errorColumn": "ErrorMessage",
+    "retryColumn": "RetryCount",
+
+    "// FOR sent_flag method": "",
+    "sentColumn": "IsSent",
+    "sentAtColumn": "SentAt",
+
+    "// FOR tracking_table method": "",
+    "trackingTable": "MqttSentRecords",
+    "sourceTableColumn": "SourceTable",
+    "recordIdColumn": "RecordId"
+  },
+
+  "query": {
+    "primaryKey": "Id",
+    "monitorIdColumn": "DeviceId",
+    "whereClause": "Status = 'Ready'",
+    "orderBy": "CreatedAt ASC",
+    "batchSize": 100
+  },
+
+  "mqtt": {
+    "topicPattern": "data/{DeviceId}/type",
+    "qos": 1,
+    "retain": false,
+    "payloadSource": "optional_column_name_for_pre_formatted_json"
+  },
+
+  "fieldMapping": {
+    "TableColumn1": "MqttField1",
+    "TableColumn2": "MqttField2",
+    "TableColumn3": "MqttField3"
+  }
+}

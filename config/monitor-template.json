@@ -1,0 +1,24 @@
+{
+  "monitors": {
+    "MONITOR_ID": {
+      "name": "Monitor Display Name",
+      "location": "Building X - Floor Y",
+      "sensors": [
+        {
+          "type": "sensor_name",
+          "unit": "unit_of_measure",
+          "generator": "oscillate|random|linear|static",
+          "min": 0.0,
+          "max": 100.0,
+          "amplitude": 5.0,
+          "frequency": 0.5
+        }
+      ],
+      "fields": {
+        "Status": "Active",
+        "DataQuality": "Good",
+        "CustomField1": "CustomValue1"
+      }
+    }
+  }
+}

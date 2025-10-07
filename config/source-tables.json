@@ -1,0 +1,127 @@
+{
+  "sources": [
+    {
+      "name": "Messages",
+      "enabled": true,
+      "tableName": "Messages",
+      "schema": "dbo",
+      "description": "Original messages table",
+      "tracking": {
+        "method": "status_column",
+        "statusColumn": "Status",
+        "sentValue": "Published",
+        "pendingValue": "Pending",
+        "errorColumn": "ErrorMessage",
+        "retryColumn": "RetryCount"
+      },
+      "query": {
+        "primaryKey": "MessageId",
+        "monitorIdColumn": "MonitorId",
+        "whereClause": "Status = 'Pending' AND RetryCount < 3",
+        "orderBy": "Priority DESC, CreatedAt ASC",
+        "batchSize": 100
+      },
+      "mqtt": {
+        "topicPattern": "monitor/{MonitorId}/messages",
+        "qos": 1,
+        "retain": false,
+        "payloadSource": "MessageContent"
+      },
+      "fieldMapping": {
+        "MessageContent": "payload",
+        "CorrelationId": "correlationId",
+        "MonitorId": "monitorId"
+      }
+    },
+    {
+      "name": "SensorReadings",
+      "enabled": false,
+      "tableName": "SensorReadings",
+      "schema": "dbo",
+      "description": "Real-time sensor data",
+      "tracking": {
+        "method": "sent_flag",
+        "sentColumn": "IsSent",
+        "sentAtColumn": "SentAt"
+      },
+      "query": {
+        "primaryKey": "ReadingId",
+        "monitorIdColumn": "DeviceId",
+        "whereClause": "IsSent = 0",
+        "orderBy": "Timestamp ASC",
+        "batchSize": 50
+      },
+      "mqtt": {
+        "topicPattern": "sensors/{DeviceId}/readings",
+        "qos": 1,
+        "retain": false
+      },
+      "fieldMapping": {
+        "ReadingId": "RecordId",
+        "DeviceId": "MonitorId",
+        "SensorType": "SensorType",
+        "Value": "Value",
+        "Unit": "Unit",
+        "Timestamp": "Timestamp",
+        "Location": "Location"
+      }
+    },
+    {
+      "name": "AlarmEvents",
+      "enabled": false,
+      "tableName": "AlarmEvents",
+      "schema": "dbo",
+      "description": "System alarm events",
+      "tracking": {
+        "method": "tracking_table",
+        "trackingTable": "MqttSentRecords",
+        "sourceTableColumn": "SourceTable",
+        "recordIdColumn": "RecordId"
+      },
+      "query": {
+        "primaryKey": "EventId",
+        "monitorIdColumn": "SourceId",
+        "whereClause": "Severity IN ('High', 'Critical')",
+        "orderBy": "EventTime DESC",
+        "batchSize": 25
+      },
+      "mqtt": {
+        "topicPattern": "alarms/{SourceId}/events",
+        "qos": 2,
+        "retain": true
+      },
+      "fieldMapping": {
+        "EventId": "RecordId",
+        "SourceId": "MonitorId",
+        "EventType": "SensorType",
+        "EventMessage": "Value",
+        "Severity": "Unit",
+        "EventTime": "Timestamp",
+        "SourceLocation": "Location",
+        "ThresholdValue": "AlertThreshold"
+      }
+    }
+  ],
+  "tracking_tables": {
+    "create_if_missing": true,
+    "MqttSentRecords": {
+      "columns": {
+        "Id": "BIGINT IDENTITY(1,1) PRIMARY KEY",
+        "SourceTable": "NVARCHAR(100) NOT NULL",
+        "RecordId": "NVARCHAR(100) NOT NULL",
+        "SentAt": "DATETIME2 NOT NULL DEFAULT GETUTCDATE()",
+        "CorrelationId": "UNIQUEIDENTIFIER",
+        "Topic": "NVARCHAR(500)"
+      },
+      "indexes": [
+        "CREATE UNIQUE INDEX IX_MqttSentRecords_Source_Record ON MqttSentRecords(SourceTable, RecordId)"
+      ]
+    }
+  },
+  "global_settings": {
+    "polling_interval_seconds": 5,
+    "max_concurrent_sources": 3,
+    "enable_auto_retry": true,
+    "max_retry_attempts": 3
+  }
+}

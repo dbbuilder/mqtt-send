@@ -1,0 +1,544 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "MQTT Bridge Monitor";
+}
+
+<style>
+    .status-card {
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .status-good { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .status-warning { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
+    .status-offline { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; }
+
+    .metric-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-left: 4px solid #667eea;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .metric-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #667eea;
+    }
+
+    .metric-label {
+        font-size: 0.9rem;
+        color: #666;
+        text-transform: uppercase;
+    }
+
+    .flow-event {
+        padding: 10px;
+        margin-bottom: 8px;
+        border-radius: 4px;
+        border-left: 3px solid;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+    }
+
+    .flow-received { border-left-color: #667eea; }
+    .flow-published { border-left-color: #f5576c; }
+    .flow-success { opacity: 1; }
+    .flow-error { opacity: 0.6; background: #ffe0e0; }
+
+    .subscription-item, .table-monitor-item {
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 3px solid #28a745;
+    }
+
+    .subscription-item.disabled, .table-monitor-item.disabled {
+        border-left-color: #dc3545;
+        opacity: 0.6;
+    }
+
+    .badge-status {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+
+    .badge-online { background: #28a745; color: white; }
+    .badge-offline { background: #dc3545; color: white; }
+
+    .stats-bar {
+        display: flex;
+        gap: 20px;
+        margin-top: 10px;
+    }
+
+    .stat-item {
+        flex: 1;
+        text-align: center;
+    }
+
+    .stat-number {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .timestamp {
+        color: #999;
+        font-size: 0.8rem;
+    }
+</style>
+
+<div class="container-fluid mt-4">
+    <h1 class="mb-4">MQTT Bridge Monitor</h1>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-lightning-fill"></i> Quick Test Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6>Send Test Messages (MQTT)</h6>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-primary" onclick="sendTestMessage('temperature', 72.5)">
+                                    <i class="bi bi-thermometer-half"></i> Normal Temp (72°F)
+                                </button>
+                                <button class="btn btn-warning" onclick="sendTestMessage('temperature', 85.0)">
+                                    <i class="bi bi-thermometer-high"></i> High Temp (85°F - Alert)
+                                </button>
+                                <button class="btn btn-info" onclick="sendTestMessage('pressure', 101.3)">
+                                    <i class="bi bi-speedometer"></i> Pressure (101.3 kPa)
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Trigger Publisher Events</h6>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-success" onclick="triggerPublisher('TableA')">
+                                    <i class="bi bi-database"></i> Publish from TableA
+                                </button>
+                                <button class="btn btn-success" onclick="triggerPublisher('TableB')">
+                                    <i class="bi bi-database"></i> Publish from TableB
+                                </button>
+                                <button class="btn btn-success" onclick="triggerPublisher('TableC')">
+                                    <i class="bi bi-database"></i> Publish from TableC
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Bulk Operations</h6>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-secondary" onclick="sendBulkMessages(5)">
+                                    <i class="bi bi-arrow-repeat"></i> Send 5 Random Messages
+                                </button>
+                                <button class="btn btn-secondary" onclick="sendBulkMessages(10)">
+                                    <i class="bi bi-arrow-repeat"></i> Send 10 Random Messages
+                                </button>
+                                <button class="btn btn-danger" onclick="clearAllData()">
+                                    <i class="bi bi-trash"></i> Clear All Test Data
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div id="actionStatus" class="alert alert-info" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Status -->
+    <div class="row">
+        <div class="col-md-3">
+            <div id="receiverStatusCard" class="status-card status-offline">
+                <h5>MQTT Receiver</h5>
+                <div id="receiverStatus">
+                    <span class="badge-status badge-offline">CHECKING...</span>
+                </div>
+                <div class="mt-2">
+                    <small id="receiverSubscriptions">0 subscriptions</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div id="publisherStatusCard" class="status-card status-offline">
+                <h5>MQTT Publisher</h5>
+                <div id="publisherStatus">
+                    <span class="badge-status badge-offline">CHECKING...</span>
+                </div>
+                <div class="mt-2">
+                    <small id="publisherTables">0 tables</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="status-card status-good">
+                <h5>System Overview</h5>
+                <div class="stats-bar">
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalSubscriptions">0</div>
+                        <div><small>Active Topics</small></div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalTables">0</div>
+                        <div><small>Monitored Tables</small></div>
+                    </div>
+                </div>
+                <div class="mt-2 text-end">
+                    <small class="timestamp" id="lastUpdate">Last update: --</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div class="row">
+        <!-- Receiver Details -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Receiver Status (MQTT → Database)</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Statistics Today</h6>
+                    <div class="stats-bar mb-3">
+                        <div class="stat-item">
+                            <div class="stat-number text-primary" id="receiverTotal">0</div>
+                            <div><small>Total</small></div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number text-success" id="receiverSuccess">0</div>
+                            <div><small>Success</small></div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number text-danger" id="receiverFailed">0</div>
+                            <div><small>Failed</small></div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number text-info" id="receiverRate">0%</div>
+                            <div><small>Success Rate</small></div>
+                        </div>
+                    </div>
+
+                    <h6>Active Subscriptions</h6>
+                    <div id="subscriptionsList" style="max-height: 200px; overflow-y: auto;">
+                        <p class="text-muted">Loading...</p>
+                    </div>
+
+                    <h6 class="mt-3">Recent Messages</h6>
+                    <div id="recentMessagesList" style="max-height: 300px; overflow-y: auto;">
+                        <p class="text-muted">Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Publisher Details -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">Publisher Status (Database → MQTT)</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Statistics Today</h6>
+                    <div class="stats-bar mb-3">
+                        <div class="stat-item">
+                            <div class="stat-number text-primary" id="publisherTotal">0</div>
+                            <div><small>Total</small></div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number text-success" id="publisherSuccess">0</div>
+                            <div><small>Success</small></div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number text-danger" id="publisherFailed">0</div>
+                            <div><small>Failed</small></div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number text-info" id="publisherRate">0%</div>
+                            <div><small>Success Rate</small></div>
+                        </div>
+                    </div>
+
+                    <h6>Table Monitors</h6>
+                    <div id="tableMonitorsList" style="max-height: 200px; overflow-y: auto;">
+                        <p class="text-muted">Loading...</p>
+                    </div>
+
+                    <h6 class="mt-3">Recent Publications</h6>
+                    <div id="recentPublicationsList" style="max-height: 300px; overflow-y: auto;">
+                        <p class="text-muted">Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Flow -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Live Message Flow</h5>
+                </div>
+                <div class="card-body">
+                    <div id="flowEventsList" style="max-height: 400px; overflow-y: auto;">
+                        <p class="text-muted">Waiting for messages...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@7.0.0/dist/browser/signalr.min.js"></script>
+    <script>
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/monitorHub")
+            .withAutomaticReconnect()
+            .build();
+
+        connection.on("ReceiveSystemStatus", (status) => {
+            document.getElementById("totalSubscriptions").textContent = status.activeSubscriptions;
+            document.getElementById("totalTables").textContent = status.monitoredTables;
+            document.getElementById("lastUpdate").textContent = `Last update: ${new Date(status.lastUpdate).toLocaleTimeString()}`;
+
+            // Update receiver status
+            const receiverCard = document.getElementById("receiverStatusCard");
+            const receiverStatus = document.getElementById("receiverStatus");
+            if (status.receiverConnected) {
+                receiverCard.className = "status-card status-good";
+                receiverStatus.innerHTML = '<span class="badge-status badge-online">ONLINE</span>';
+            } else {
+                receiverCard.className = "status-card status-offline";
+                receiverStatus.innerHTML = '<span class="badge-status badge-offline">OFFLINE</span>';
+            }
+            document.getElementById("receiverSubscriptions").textContent = `${status.activeSubscriptions} subscriptions`;
+
+            // Update publisher status
+            const publisherCard = document.getElementById("publisherStatusCard");
+            const publisherStatus = document.getElementById("publisherStatus");
+            if (status.publisherConnected) {
+                publisherCard.className = "status-card status-good";
+                publisherStatus.innerHTML = '<span class="badge-status badge-online">ONLINE</span>';
+            } else {
+                publisherCard.className = "status-card status-offline";
+                publisherStatus.innerHTML = '<span class="badge-status badge-offline">OFFLINE</span>';
+            }
+            document.getElementById("publisherTables").textContent = `${status.monitoredTables} tables`;
+        });
+
+        connection.on("ReceiveReceiverStatus", (status) => {
+            // Update statistics
+            document.getElementById("receiverTotal").textContent = status.statistics.totalToday;
+            document.getElementById("receiverSuccess").textContent = status.statistics.successToday;
+            document.getElementById("receiverFailed").textContent = status.statistics.failedToday;
+            document.getElementById("receiverRate").textContent = status.statistics.successRate.toFixed(1) + '%';
+
+            // Update subscriptions list
+            const subsList = document.getElementById("subscriptionsList");
+            if (status.subscriptions.length === 0) {
+                subsList.innerHTML = '<p class="text-muted">No active subscriptions</p>';
+            } else {
+                subsList.innerHTML = status.subscriptions.map(sub => `
+                    <div class="subscription-item ${sub.isEnabled ? '' : 'disabled'}">
+                        <strong>${sub.configName}</strong><br>
+                        <code>${sub.topicPattern}</code>
+                        <span class="badge bg-secondary">${sub.tableMappingCount} tables</span>
+                    </div>
+                `).join('');
+            }
+
+            // Update recent messages
+            const msgList = document.getElementById("recentMessagesList");
+            if (status.recentMessages.length === 0) {
+                msgList.innerHTML = '<p class="text-muted">No messages yet</p>';
+            } else {
+                msgList.innerHTML = status.recentMessages.map(msg => `
+                    <div class="flow-event flow-received ${msg.success ? 'flow-success' : 'flow-error'}">
+                        <strong>${msg.topic}</strong>
+                        ${msg.success ? `<span class="badge bg-success">✓ ${msg.tablesAffected} tables</span>` : `<span class="badge bg-danger">✗ Error</span>`}
+                        <br>
+                        <span class="timestamp">${new Date(msg.receivedAt).toLocaleTimeString()}</span>
+                        ${msg.errorMessage ? `<br><small class="text-danger">${msg.errorMessage}</small>` : ''}
+                    </div>
+                `).join('');
+            }
+        });
+
+        connection.on("ReceivePublisherStatus", (status) => {
+            // Update statistics
+            document.getElementById("publisherTotal").textContent = status.statistics.totalToday;
+            document.getElementById("publisherSuccess").textContent = status.statistics.successToday;
+            document.getElementById("publisherFailed").textContent = status.statistics.failedToday;
+            document.getElementById("publisherRate").textContent = status.statistics.successRate.toFixed(1) + '%';
+
+            // Update table monitors list
+            const monitorsList = document.getElementById("tableMonitorsList");
+            if (status.tableMonitors.length === 0) {
+                monitorsList.innerHTML = '<p class="text-muted">No table monitors configured</p>';
+            } else {
+                monitorsList.innerHTML = status.tableMonitors.map(monitor => `
+                    <div class="table-monitor-item ${monitor.isEnabled ? '' : 'disabled'}">
+                        <strong>${monitor.tableName}</strong><br>
+                        <code>${monitor.topic}</code>
+                        <span class="badge bg-info">${monitor.pollingIntervalSeconds}s</span>
+                    </div>
+                `).join('');
+            }
+
+            // Update recent publications
+            const pubList = document.getElementById("recentPublicationsList");
+            if (status.recentPublications.length === 0) {
+                pubList.innerHTML = '<p class="text-muted">No publications yet</p>';
+            } else {
+                pubList.innerHTML = status.recentPublications.map(pub => `
+                    <div class="flow-event flow-published ${pub.success ? 'flow-success' : 'flow-error'}">
+                        <strong>${pub.topic}</strong>
+                        ${pub.success ? '<span class="badge bg-success">✓</span>' : '<span class="badge bg-danger">✗</span>'}
+                        <br>
+                        <small>From: ${pub.tableName}</small><br>
+                        <span class="timestamp">${new Date(pub.publishedAt).toLocaleTimeString()}</span>
+                        ${pub.errorMessage ? `<br><small class="text-danger">${pub.errorMessage}</small>` : ''}
+                    </div>
+                `).join('');
+            }
+        });
+
+        connection.on("ReceiveFlowEvents", (events) => {
+            const flowList = document.getElementById("flowEventsList");
+            if (events.length === 0) {
+                flowList.innerHTML = '<p class="text-muted">Waiting for messages...</p>';
+            } else {
+                flowList.innerHTML = events.map(event => `
+                    <div class="flow-event flow-${event.type} ${event.success ? 'flow-success' : 'flow-error'}">
+                        <span class="badge bg-${event.type === 'received' ? 'primary' : 'danger'}">${event.type.toUpperCase()}</span>
+                        <strong>${event.topic}</strong>
+                        ${event.success ? '<span class="badge bg-success">✓</span>' : '<span class="badge bg-danger">✗</span>'}
+                        <br>
+                        ${event.details ? `<small>${event.details}</small><br>` : ''}
+                        ${event.targetTable ? `<small>Table: ${event.targetTable}</small><br>` : ''}
+                        <span class="timestamp">${new Date(event.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                `).join('');
+            }
+        });
+
+        connection.start()
+            .then(() => console.log("Connected to MonitorHub"))
+            .catch(err => console.error("SignalR connection error:", err));
+
+        // Quick action functions
+        function showActionStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('actionStatus');
+            statusDiv.className = `alert alert-${type}`;
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 4000);
+        }
+
+        async function sendTestMessage(sensorType, value) {
+            try {
+                showActionStatus(`Sending ${sensorType} message with value ${value}...`, 'info');
+
+                const response = await fetch('/api/test/send-message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sensorType, value })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showActionStatus(`✓ Message sent successfully to topic: ${result.topic}`, 'success');
+                } else {
+                    showActionStatus(`✗ Failed to send message: ${response.statusText}`, 'danger');
+                }
+            } catch (error) {
+                showActionStatus(`✗ Error: ${error.message}`, 'danger');
+            }
+        }
+
+        async function triggerPublisher(tableName) {
+            try {
+                showActionStatus(`Triggering publisher for ${tableName}...`, 'info');
+
+                const response = await fetch('/api/test/trigger-publisher', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tableName })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showActionStatus(`✓ Publisher triggered for ${tableName}: ${result.recordsPublished} records published`, 'success');
+                } else {
+                    showActionStatus(`✗ Failed to trigger publisher: ${response.statusText}`, 'danger');
+                }
+            } catch (error) {
+                showActionStatus(`✗ Error: ${error.message}`, 'danger');
+            }
+        }
+
+        async function sendBulkMessages(count) {
+            try {
+                showActionStatus(`Sending ${count} random messages...`, 'info');
+
+                const response = await fetch('/api/test/send-bulk', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ count })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showActionStatus(`✓ Sent ${result.messagesSent} random messages successfully`, 'success');
+                } else {
+                    showActionStatus(`✗ Failed to send bulk messages: ${response.statusText}`, 'danger');
+                }
+            } catch (error) {
+                showActionStatus(`✗ Error: ${error.message}`, 'danger');
+            }
+        }
+
+        async function clearAllData() {
+            if (!confirm('Are you sure you want to clear all test data? This cannot be undone.')) {
+                return;
+            }
+
+            try {
+                showActionStatus('Clearing all test data...', 'warning');
+
+                const response = await fetch('/api/test/clear-data', {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showActionStatus(`✓ Cleared all test data: ${result.recordsDeleted} records deleted`, 'success');
+                } else {
+                    showActionStatus(`✗ Failed to clear data: ${response.statusText}`, 'danger');
+                }
+            } catch (error) {
+                showActionStatus(`✗ Error: ${error.message}`, 'danger');
+            }
+        }
+    </script>
+}

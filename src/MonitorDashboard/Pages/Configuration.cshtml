@@ -1,0 +1,558 @@
+@page
+@model ConfigurationModel
+@{
+    ViewData["Title"] = "Topic Configuration";
+}
+
+<h1 class="mb-4">MQTT Topic Configuration</h1>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @Model.ErrorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="row">
+    <!-- Add New Topic Configuration -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Add New Topic Configuration</h5>
+                <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#helpModal">
+                    <i class="bi bi-question-circle"></i> Help
+                </button>
+            </div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="AddConfig">
+                    <!-- Template Selector -->
+                    <div class="mb-4">
+                        <label for="templateSelector" class="form-label">
+                            <i class="bi bi-lightning-fill text-warning"></i> Quick Start Template
+                            <span class="badge bg-info">Optional</span>
+                        </label>
+                        <select class="form-select" id="templateSelector" onchange="applyTemplate()">
+                            <option value="">-- Select a template to get started --</option>
+                            <option value="temperature">Temperature Sensors (Basic)</option>
+                            <option value="temperature-alerts">High Temperature Alerts (With Filter)</option>
+                            <option value="pressure">Pressure Sensors</option>
+                            <option value="humidity">Humidity Monitoring</option>
+                            <option value="device-status">Device Status Updates</option>
+                            <option value="custom-all">Custom Data (All Messages)</option>
+                        </select>
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i> Select a template to auto-fill the form, then customize as needed
+                        </small>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="mb-3">
+                        <label for="configName" class="form-label">
+                            Configuration Name
+                            <span class="text-danger">*</span>
+                            <button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="tooltip"
+                                    title="Unique identifier for this configuration. Use descriptive names like 'TemperatureSensors' or 'DeviceAlerts'">
+                                <i class="bi bi-info-circle"></i>
+                            </button>
+                        </label>
+                        <input type="text" class="form-control" id="configName" name="ConfigName"
+                               placeholder="e.g., TemperatureSensors" required
+                               pattern="^[A-Za-z0-9_-]+$"
+                               title="Only letters, numbers, hyphens, and underscores allowed">
+                        <small class="text-muted">
+                            <strong>Examples:</strong> TemperatureSensors, DeviceAlerts, CustomData
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="topicPattern" class="form-label">
+                            Topic Pattern
+                            <span class="text-danger">*</span>
+                            <button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="tooltip"
+                                    title="MQTT topic pattern with wildcards. '+' matches one level, '#' matches multiple levels">
+                                <i class="bi bi-info-circle"></i>
+                            </button>
+                        </label>
+                        <input type="text" class="form-control" id="topicPattern" name="TopicPattern"
+                               placeholder="e.g., sensor/+/temperature" required>
+                        <small class="text-muted">
+                            <strong>Wildcards:</strong><br>
+                            <code>+</code> = one level: <code>sensor/+/temp</code> → <code>sensor/device1/temp</code><br>
+                            <code>#</code> = multiple: <code>data/#</code> → <code>data/any/nested/topic</code><br>
+                            <strong>Examples:</strong> sensor/+/temperature, data/+/alerts, custom/#
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="messageFormat" class="form-label">
+                            Message Format
+                            <span class="text-danger">*</span>
+                            <button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="tooltip"
+                                    title="Format of MQTT message payload. JSON is most common for IoT devices">
+                                <i class="bi bi-info-circle"></i>
+                            </button>
+                        </label>
+                        <select class="form-select" id="messageFormat" name="MessageFormat" required>
+                            <option value="JSON" selected>JSON (Most Common)</option>
+                            <option value="XML">XML</option>
+                            <option value="CSV">CSV</option>
+                            <option value="Raw">Raw Text</option>
+                        </select>
+                        <small class="text-muted">
+                            <strong>JSON:</strong> {"temperature": 72.5}<br>
+                            <strong>XML:</strong> &lt;temp&gt;72.5&lt;/temp&gt;<br>
+                            <strong>CSV:</strong> device1,72.5,F<br>
+                            <strong>Raw:</strong> Plain text messages
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="fieldMapping" class="form-label">
+                            Field Mapping (JSON)
+                            <span class="text-danger">*</span>
+                            <button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="tooltip"
+                                    title="Maps MQTT message fields to database columns using JSONPath notation">
+                                <i class="bi bi-info-circle"></i>
+                            </button>
+                        </label>
+                        <textarea class="form-control font-monospace" id="fieldMapping" name="FieldMappingJson" rows="5"
+                                  placeholder='{"DeviceId": "$.device_id", "Value": "$.temperature", "Unit": "$.unit"}' required></textarea>
+                        <small class="text-muted">
+                            <strong>Format:</strong> {"DatabaseColumn": "$.mqtt_field"}<br>
+                            <strong>Example MQTT message:</strong><br>
+                            <code>{"device_id": "sensor1", "temperature": 72.5, "unit": "F"}</code><br>
+                            <strong>Mapping:</strong><br>
+                            <code>{"DeviceId": "$.device_id", "Value": "$.temperature", "Unit": "$.unit"}</code><br>
+                            <strong>Nested fields:</strong> <code>{"Field": "$.data.nested.value"}</code>
+                        </small>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="fillExampleMapping()">
+                                Fill Example
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="qos" class="form-label">
+                                QoS Level
+                                <span class="text-danger">*</span>
+                                <button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="tooltip"
+                                        title="Quality of Service - delivery guarantee level">
+                                    <i class="bi bi-info-circle"></i>
+                                </button>
+                            </label>
+                            <select class="form-select" id="qos" name="QoS" required>
+                                <option value="0">0 - At most once (fastest, no guarantee)</option>
+                                <option value="1" selected>1 - At least once (recommended)</option>
+                                <option value="2">2 - Exactly once (slowest, guaranteed)</option>
+                            </select>
+                            <small class="text-muted">
+                                <strong>Recommendation:</strong> Use QoS 1 for most cases
+                            </small>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Status</label>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="enabled" name="Enabled" checked>
+                                <label class="form-check-label" for="enabled">
+                                    <strong>Enabled</strong> - Start receiving messages immediately
+                                </label>
+                            </div>
+                            <small class="text-muted">
+                                Uncheck to save as disabled (can enable later)
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            Target Table Mapping
+                            <span class="text-danger">*</span>
+                            <button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="tooltip"
+                                    title="Defines which database table receives the messages and how they are inserted">
+                                <i class="bi bi-info-circle"></i>
+                            </button>
+                        </label>
+
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="row mb-2">
+                                    <div class="col-md-5">
+                                        <label class="form-label small">Table Name</label>
+                                        <input type="text" class="form-control" name="TargetTable"
+                                               placeholder="e.g., RawSensorData" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small">Insert Mode</label>
+                                        <select class="form-select" name="InsertMode" required>
+                                            <option value="Direct" selected>Direct SQL</option>
+                                            <option value="StoredProc">Stored Proc</option>
+                                            <option value="View">View</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small">Priority</label>
+                                        <input type="number" class="form-control" name="Priority"
+                                               value="100" min="1" max="999" required>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small">Enabled</label>
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" name="TableEnabled" checked>
+                                        </div>
+                                    </div>
+                                </div>
+                                <small class="text-muted">
+                                    <strong>Table Name:</strong> Existing database table (e.g., RawSensorData)<br>
+                                    <strong>Insert Mode:</strong> Direct=INSERT, StoredProc=Call procedure, View=INSERT via view<br>
+                                    <strong>Priority:</strong> 100=High, 90=Medium, 80=Low (for multiple tables)<br>
+                                    <strong>Examples:</strong> RawSensorData (100), SensorAlerts (90), SensorAggregates (80)
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="filterExpression" class="form-label">
+                            Filter Expression
+                            <span class="badge bg-secondary">Optional</span>
+                            <button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="tooltip"
+                                    title="SQL-like condition to filter which messages are inserted. Leave empty to insert all messages">
+                                <i class="bi bi-info-circle"></i>
+                            </button>
+                        </label>
+                        <input type="text" class="form-control font-monospace" id="filterExpression" name="FilterExpression"
+                               placeholder="e.g., Value > 75">
+                        <small class="text-muted">
+                            <strong>Leave empty</strong> to insert all messages<br>
+                            <strong>Examples:</strong><br>
+                            • <code>Value > 75</code> - Only high temperatures<br>
+                            • <code>Status = 'ERROR'</code> - Only errors<br>
+                            • <code>Priority >= 5</code> - High priority only<br>
+                            • <code>Value > 75 AND DeviceId = 'sensor1'</code> - Combined conditions
+                        </small>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> Add Configuration
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Existing Configurations -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">Existing Configurations</h5>
+            </div>
+            <div class="card-body">
+                @if (Model.Configurations != null && Model.Configurations.Any())
+                {
+                    <div class="list-group">
+                        @foreach (var config in Model.Configurations)
+                        {
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">@config.ConfigName</h6>
+                                        <p class="mb-1"><code>@config.TopicPattern</code></p>
+                                        <small class="text-muted">
+                                            Format: @config.MessageFormat | QoS: @config.QoS
+                                        </small>
+                                    </div>
+                                    <div>
+                                        @if (config.Enabled)
+                                        {
+                                            <span class="badge bg-success">Enabled</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Disabled</span>
+                                        }
+                                    </div>
+                                </div>
+                                @if (!string.IsNullOrEmpty(config.Description))
+                                {
+                                    <p class="mb-0 mt-2"><small>@config.Description</small></p>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted">No configurations found. Add one using the form.</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border-radius: 8px;
+    }
+    .card-header {
+        border-radius: 8px 8px 0 0;
+    }
+    code {
+        background: #f4f4f4;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.9em;
+    }
+</style>
+
+<!-- Help Modal -->
+<div class="modal fade" id="helpModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Configuration Help Guide</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6 class="text-primary">Complete Example: Temperature Sensor</h6>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <p><strong>Scenario:</strong> Monitor temperature sensors from multiple devices</p>
+                        <p><strong>MQTT Messages look like:</strong></p>
+                        <pre class="bg-light p-2"><code>Topic: sensor/device1/temperature
+Payload: {"device_id": "device1", "temperature": 72.5, "unit": "F", "timestamp": "2025-01-06T10:30:00Z"}</code></pre>
+
+                        <p><strong>Configuration:</strong></p>
+                        <table class="table table-sm">
+                            <tr><td><strong>Configuration Name:</strong></td><td>TemperatureSensors</td></tr>
+                            <tr><td><strong>Topic Pattern:</strong></td><td>sensor/+/temperature</td></tr>
+                            <tr><td><strong>Message Format:</strong></td><td>JSON</td></tr>
+                            <tr><td><strong>Field Mapping:</strong></td><td>{"DeviceId": "$.device_id", "Value": "$.temperature", "Unit": "$.unit"}</td></tr>
+                            <tr><td><strong>QoS:</strong></td><td>1</td></tr>
+                            <tr><td><strong>Target Table:</strong></td><td>RawSensorData</td></tr>
+                            <tr><td><strong>Insert Mode:</strong></td><td>Direct SQL</td></tr>
+                            <tr><td><strong>Priority:</strong></td><td>100</td></tr>
+                            <tr><td><strong>Filter:</strong></td><td>(empty - insert all)</td></tr>
+                        </table>
+
+                        <p><strong>Result:</strong> All temperature messages from any device will be stored in RawSensorData table</p>
+                    </div>
+                </div>
+
+                <h6 class="text-primary">Advanced Example: High Temperature Alerts</h6>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <p><strong>Scenario:</strong> Same sensors, but only store when temperature > 75°F</p>
+
+                        <p><strong>Configuration:</strong></p>
+                        <table class="table table-sm">
+                            <tr><td><strong>Configuration Name:</strong></td><td>HighTempAlerts</td></tr>
+                            <tr><td><strong>Topic Pattern:</strong></td><td>sensor/+/temperature</td></tr>
+                            <tr><td><strong>Message Format:</strong></td><td>JSON</td></tr>
+                            <tr><td><strong>Field Mapping:</strong></td><td>{"DeviceId": "$.device_id", "Temperature": "$.temperature"}</td></tr>
+                            <tr><td><strong>QoS:</strong></td><td>1</td></tr>
+                            <tr><td><strong>Target Table:</strong></td><td>SensorAlerts</td></tr>
+                            <tr><td><strong>Insert Mode:</strong></td><td>Direct SQL</td></tr>
+                            <tr><td><strong>Priority:</strong></td><td>90</td></tr>
+                            <tr><td><strong>Filter:</strong></td><td><code>Value > 75</code></td></tr>
+                        </table>
+
+                        <p><strong>Result:</strong> Only high temperature alerts stored in separate SensorAlerts table</p>
+                    </div>
+                </div>
+
+                <h6 class="text-primary">Quick Tips</h6>
+                <ul>
+                    <li><strong><i class="bi bi-lightning-fill text-warning"></i> Quick Start:</strong> Use the template dropdown at the top to auto-fill tested configurations</li>
+                    <li><strong>Topic Wildcards:</strong> Use <code>+</code> for one level, <code>#</code> for multiple levels</li>
+                    <li><strong>JSONPath:</strong> Use <code>$.</code> to access top-level fields, <code>$.data.nested</code> for nested</li>
+                    <li><strong>Priority:</strong> Lower number = processed first (use for one-to-many routing)</li>
+                    <li><strong>Filters:</strong> SQL-like conditions using field names from mapping</li>
+                    <li><strong>Auto-reload:</strong> Changes take effect within 30 seconds (no restart needed)</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Initialize Bootstrap tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+
+        // Fill example mapping
+        function fillExampleMapping() {
+            const example = '{"DeviceId": "$.device_id", "Value": "$.temperature", "Unit": "$.unit", "Timestamp": "$.timestamp"}';
+            document.getElementById('fieldMapping').value = example;
+        }
+
+        // Apply template configuration
+        function applyTemplate() {
+            const template = document.getElementById('templateSelector').value;
+            if (!template) return;
+
+            const templates = {
+                'temperature': {
+                    configName: 'TemperatureSensors',
+                    topicPattern: 'sensor/+/temperature',
+                    messageFormat: 'JSON',
+                    fieldMapping: '{"DeviceId": "$.device_id", "SensorType": "$.sensor_type", "Value": "$.value", "Unit": "$.unit", "Timestamp": "$.timestamp"}',
+                    qos: '1',
+                    enabled: true,
+                    targetTable: 'RawSensorData',
+                    insertMode: 'Direct',
+                    priority: '100',
+                    tableEnabled: true,
+                    filterExpression: ''
+                },
+                'temperature-alerts': {
+                    configName: 'HighTempAlerts',
+                    topicPattern: 'sensor/+/temperature',
+                    messageFormat: 'JSON',
+                    fieldMapping: '{"DeviceId": "$.device_id", "SensorType": "$.sensor_type", "AlertType": "HighTemperature", "Value": "$.value", "Threshold": 75.0, "AlertTime": "$.timestamp", "Severity": "Warning"}',
+                    qos: '1',
+                    enabled: true,
+                    targetTable: 'SensorAlerts',
+                    insertMode: 'Direct',
+                    priority: '90',
+                    tableEnabled: true,
+                    filterExpression: 'Value > 75'
+                },
+                'pressure': {
+                    configName: 'PressureSensors',
+                    topicPattern: 'sensor/+/pressure',
+                    messageFormat: 'JSON',
+                    fieldMapping: '{"DeviceId": "$.device_id", "SensorType": "$.sensor_type", "Value": "$.value", "Unit": "$.unit", "Timestamp": "$.timestamp"}',
+                    qos: '1',
+                    enabled: true,
+                    targetTable: 'RawSensorData',
+                    insertMode: 'Direct',
+                    priority: '100',
+                    tableEnabled: true,
+                    filterExpression: ''
+                },
+                'humidity': {
+                    configName: 'HumiditySensors',
+                    topicPattern: 'sensor/+/humidity',
+                    messageFormat: 'JSON',
+                    fieldMapping: '{"DeviceId": "$.device_id", "SensorType": "$.sensor_type", "Value": "$.value", "Unit": "$.unit", "Timestamp": "$.timestamp"}',
+                    qos: '1',
+                    enabled: true,
+                    targetTable: 'RawSensorData',
+                    insertMode: 'Direct',
+                    priority: '100',
+                    tableEnabled: true,
+                    filterExpression: ''
+                },
+                'device-status': {
+                    configName: 'DeviceStatus',
+                    topicPattern: 'device/+/status',
+                    messageFormat: 'JSON',
+                    fieldMapping: '{"DeviceId": "$.device_id", "Status": "$.status", "Battery": "$.battery_level", "Signal": "$.signal_strength", "Timestamp": "$.timestamp"}',
+                    qos: '1',
+                    enabled: true,
+                    targetTable: 'DeviceStatus',
+                    insertMode: 'Direct',
+                    priority: '100',
+                    tableEnabled: true,
+                    filterExpression: ''
+                },
+                'custom-all': {
+                    configName: 'CustomData',
+                    topicPattern: 'custom/#',
+                    messageFormat: 'JSON',
+                    fieldMapping: '{"Field1": "$.value", "Field2": "$.status", "Field3": "$.timestamp"}',
+                    qos: '1',
+                    enabled: true,
+                    targetTable: 'CustomTable',
+                    insertMode: 'Direct',
+                    priority: '100',
+                    tableEnabled: true,
+                    filterExpression: ''
+                }
+            };
+
+            const config = templates[template];
+            if (!config) return;
+
+            // Fill in form fields
+            document.getElementById('configName').value = config.configName;
+            document.getElementById('topicPattern').value = config.topicPattern;
+            document.getElementById('messageFormat').value = config.messageFormat;
+            document.getElementById('fieldMapping').value = config.fieldMapping;
+            document.getElementById('qos').value = config.qos;
+            document.getElementById('enabled').checked = config.enabled;
+            document.querySelector('input[name="TargetTable"]').value = config.targetTable;
+            document.querySelector('select[name="InsertMode"]').value = config.insertMode;
+            document.querySelector('input[name="Priority"]').value = config.priority;
+            document.querySelector('input[name="TableEnabled"]').checked = config.tableEnabled;
+            document.getElementById('filterExpression').value = config.filterExpression;
+
+            // Show success notification
+            const form = document.querySelector('form');
+            const existingAlert = form.querySelector('.alert-info');
+            if (existingAlert) existingAlert.remove();
+
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-info alert-dismissible fade show';
+            alert.innerHTML = `
+                <i class="bi bi-check-circle"></i> <strong>Template applied!</strong>
+                Review and customize the values below, then click "Add Configuration".
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            form.insertBefore(alert, form.firstChild);
+
+            // Auto-dismiss after 4 seconds
+            setTimeout(() => {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }, 4000);
+        }
+
+        // Auto-dismiss alerts after 5 seconds
+        setTimeout(function() {
+            var alerts = document.querySelectorAll('.alert');
+            alerts.forEach(function(alert) {
+                var bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
+
+        // Form validation feedback
+        (function () {
+            'use strict'
+            var forms = document.querySelectorAll('.needs-validation')
+            Array.prototype.slice.call(forms)
+                .forEach(function (form) {
+                    form.addEventListener('submit', function (event) {
+                        if (!form.checkValidity()) {
+                            event.preventDefault()
+                            event.stopPropagation()
+                        }
+                        form.classList.add('was-validated')
+                    }, false)
+                })
+        })()
+    </script>
+}

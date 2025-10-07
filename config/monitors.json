@@ -1,0 +1,74 @@
+{
+  "monitors": {
+    "1": {
+      "name": "Building A - Floor 2",
+      "location": "Building A - Floor 2",
+      "sensors": [
+        {
+          "type": "temperature",
+          "unit": "F",
+          "generator": "oscillate",
+          "min": 68.0,
+          "max": 78.0,
+          "amplitude": 5.0,
+          "frequency": 0.5
+        },
+        {
+          "type": "humidity",
+          "unit": "%",
+          "generator": "random",
+          "min": 35,
+          "max": 55
+        }
+      ],
+      "fields": {
+        "Status": "Active",
+        "DataQuality": "Good"
+      }
+    },
+    "2": {
+      "name": "Building B - Floor 1",
+      "location": "Building B - Floor 1",
+      "sensors": [
+        {
+          "type": "pressure",
+          "unit": "kPa",
+          "generator": "oscillate",
+          "min": 100.0,
+          "max": 103.0,
+          "amplitude": 1.5,
+          "frequency": 0.3
+        },
+        {
+          "type": "flow",
+          "unit": "L/min",
+          "generator": "random",
+          "min": 240.0,
+          "max": 260.0
+        }
+      ],
+      "fields": {
+        "Status": "Active",
+        "DataQuality": "Good"
+      }
+    }
+  },
+  "generators": {
+    "oscillate": {
+      "description": "Sine wave oscillation between min and max",
+      "parameters": ["min", "max", "amplitude", "frequency"]
+    },
+    "random": {
+      "description": "Random value between min and max",
+      "parameters": ["min", "max"]
+    },
+    "linear": {
+      "description": "Linear increment/decrement",
+      "parameters": ["min", "max", "step"]
+    },
+    "static": {
+      "description": "Fixed value",
+      "parameters": ["value"]
+    }
+  }
+}

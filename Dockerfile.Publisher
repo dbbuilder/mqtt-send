@@ -1,0 +1,24 @@
+# Publisher Dockerfile
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+WORKDIR /app
+
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY ["src/MultiTablePublisher/MultiTablePublisher.csproj", "MultiTablePublisher/"]
+RUN dotnet restore "MultiTablePublisher/MultiTablePublisher.csproj"
+COPY src/MultiTablePublisher/ MultiTablePublisher/
+WORKDIR "/src/MultiTablePublisher"
+RUN dotnet build "MultiTablePublisher.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "MultiTablePublisher.csproj" -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+
+# Health check endpoint (optional - add health check controller)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD dotnet /app/MultiTablePublisher.dll --health || exit 1
+
+ENTRYPOINT ["dotnet", "MultiTablePublisher.dll"]

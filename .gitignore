@@ -1,0 +1,43 @@
+# Build outputs
+bin/
+obj/
+publish/
+
+# .NET
+*.user
+*.suo
+*.cache
+*.log
+.vs/
+.vscode/
+
+# NuGet
+packages/
+*.nupkg
+
+# User-specific files
+appsettings.Development.json
+*.DotSettings.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Database
+*.mdf
+*.ldf
+
+# Docker volumes
+docker/mosquitto/data/*
+docker/mosquitto/log/*
+!docker/mosquitto/data/.gitkeep
+!docker/mosquitto/log/.gitkeep
+
+# Secrets
+*.pfx
+*.key
+secrets.json
