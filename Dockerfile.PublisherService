@@ -1,0 +1,25 @@
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+# Copy project file and restore dependencies
+COPY src/MultiTablePublisher/MultiTablePublisher.csproj src/MultiTablePublisher/
+RUN dotnet restore src/MultiTablePublisher/MultiTablePublisher.csproj
+
+# Copy source code and build
+COPY src/MultiTablePublisher/ src/MultiTablePublisher/
+WORKDIR /src/src/MultiTablePublisher
+RUN dotnet publish -c Release -o /app/publish
+
+# Runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
+WORKDIR /app
+COPY --from=build /app/publish .
+
+# Create non-root user
+RUN adduser --disabled-password --gecos '' appuser && chown -R appuser /app
+USER appuser
+
+EXPOSE 8080
+ENV ASPNETCORE_URLS=http://+:8080
+
+ENTRYPOINT ["dotnet", "MultiTablePublisher.dll"]

@@ -1,0 +1,25 @@
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+# Copy project file and restore dependencies
+COPY src/ReceiverService/ReceiverService.csproj src/ReceiverService/
+RUN dotnet restore src/ReceiverService/ReceiverService.csproj
+
+# Copy source code and build
+COPY src/ReceiverService/ src/ReceiverService/
+WORKDIR /src/src/ReceiverService
+RUN dotnet publish -c Release -o /app/publish
+
+# Runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
+WORKDIR /app
+COPY --from=build /app/publish .
+
+# Create non-root user
+RUN adduser --disabled-password --gecos '' appuser && chown -R appuser /app
+USER appuser
+
+EXPOSE 8080
+ENV ASPNETCORE_URLS=http://+:8080
+
+ENTRYPOINT ["dotnet", "ReceiverService.dll"]
