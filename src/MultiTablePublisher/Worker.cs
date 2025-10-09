@@ -4,6 +4,8 @@ using MQTTnet.Extensions.ManagedClient;
 using MultiTablePublisher.Models;
 using MultiTablePublisher.Services;
 using System.Text.Json;
+using Microsoft.Data.SqlClient;
+using System.Data;
 
 namespace MultiTablePublisher
 {
@@ -150,7 +152,7 @@ namespace MultiTablePublisher
         private async Task LoadConfigurationAsync(CancellationToken cancellationToken)
         {
             var connectionString = _configuration.GetConnectionString("MqttBridge")
-                ?? "Server=localhost,1433;Database=MqttBridge;User Id=sa;Password=YourStrong@Passw0rd;Encrypt=False;TrustServerCertificate=True;MultipleActiveResultSets=True";
+                ?? throw new InvalidOperationException("Connection string 'MqttBridge' not found.");
 
             _logger.LogInformation("Loading configuration from database: MqttSourceConfig");
 
@@ -167,19 +169,21 @@ namespace MultiTablePublisher
                 Sources = new List<SourceTable>()
             };
 
-            using (var connection = new System.Data.SqlClient.SqlConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 await connection.OpenAsync(cancellationToken);
 
-                using (var command = new System.Data.SqlClient.SqlCommand("MQTT.GetActiveConfigurations", connection))
+                using (var command = new SqlCommand("MQTT.GetActiveConfigurations", connection))
                 {
-                    command.CommandType = System.Data.CommandType.StoredProcedure;
+                    command.CommandType = CommandType.StoredProcedure;
 
                     using (var reader = await command.ExecuteReaderAsync(cancellationToken))
                     {
                         while (await reader.ReadAsync(cancellationToken))
                         {
-                            var fieldMappingJson = reader.GetString(reader.GetOrdinal("FieldMappingJson"));
+                            var fieldMappingJson = reader.IsDBNull(reader.GetOrdinal("FieldMappingJson"))
+                                ? "{}"
+                                : reader.GetString(reader.GetOrdinal("FieldMappingJson"));
                             var fieldMapping = JsonSerializer.Deserialize<Dictionary<string, string>>(fieldMappingJson)
                                 ?? new Dictionary<string, string>();
 
@@ -197,18 +201,18 @@ namespace MultiTablePublisher
                                 },
                                 Query = new QueryConfig
                                 {
-                                    PrimaryKey = reader.GetString(reader.GetOrdinal("PrimaryKeyColumn")),
-                                    MonitorIdColumn = reader.GetString(reader.GetOrdinal("MonitorIdColumn")),
+                                    PrimaryKey = reader.IsDBNull(reader.GetOrdinal("PrimaryKeyColumn")) ? "Id" : reader.GetString(reader.GetOrdinal("PrimaryKeyColumn")),
+                                    MonitorIdColumn = reader.IsDBNull(reader.GetOrdinal("MonitorIdColumn")) ? "MonitorId" : reader.GetString(reader.GetOrdinal("MonitorIdColumn")),
                                     WhereClause = reader.IsDBNull(reader.GetOrdinal("WhereClause")) ? "1=1" : reader.GetString(reader.GetOrdinal("WhereClause")),
                                     OrderBy = reader.IsDBNull(reader.GetOrdinal("OrderByClause")) ? "CreatedAt ASC" : reader.GetString(reader.GetOrdinal("OrderByClause")),
-                                    BatchSize = reader.GetInt32(reader.GetOrdinal("BatchSize")),
-                                    PollingIntervalSeconds = reader.GetInt32(reader.GetOrdinal("PollingIntervalSeconds"))
+                                    BatchSize = reader.IsDBNull(reader.GetOrdinal("BatchSize")) ? 1000 : reader.GetInt32(reader.GetOrdinal("BatchSize")),
+                                    PollingIntervalSeconds = reader.IsDBNull(reader.GetOrdinal("PollingIntervalSeconds")) ? 5 : reader.GetInt32(reader.GetOrdinal("PollingIntervalSeconds"))
                                 },
                                 Mqtt = new MqttConfig
                                 {
                                     TopicPattern = reader.GetString(reader.GetOrdinal("TopicPattern")),
-                                    Qos = reader.GetInt32(reader.GetOrdinal("QosLevel")),
-                                    Retain = reader.GetBoolean(reader.GetOrdinal("RetainFlag"))
+                                    Qos = reader.IsDBNull(reader.GetOrdinal("QosLevel")) ? 1 : reader.GetInt32(reader.GetOrdinal("QosLevel")),
+                                    Retain = reader.IsDBNull(reader.GetOrdinal("RetainFlag")) ? false : reader.GetBoolean(reader.GetOrdinal("RetainFlag"))
                                 },
                                 FieldMapping = fieldMapping
                             };

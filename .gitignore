@@ -17,6 +17,9 @@ packages/
 
 # User-specific files
 appsettings.Development.json
+appsettings.Production.json
+appsettings.Azure.json
+appsettings.Local.json
 *.DotSettings.user
 
 # OS
@@ -41,3 +44,8 @@ docker/mosquitto/log/*
 *.pfx
 *.key
 secrets.json
+
+# Deployment artifacts
+deployment-log.txt
+deployment-info.txt
+nul

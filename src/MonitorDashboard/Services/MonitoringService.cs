@@ -112,12 +112,12 @@ public class MonitoringService
             {
                 status.RecentMessages.Add(new RecentMessage
                 {
-                    Id = readerRecent.GetInt32(0),
+                    Id = Convert.ToInt32(readerRecent.GetInt64(0)),
                     Topic = readerRecent.GetString(1),
                     ConfigName = readerRecent.IsDBNull(2) ? "" : readerRecent.GetString(2),
                     ReceivedAt = readerRecent.GetDateTime(3),
                     Success = readerRecent.GetString(4) == "Success",
-                    TablesAffected = readerRecent.IsDBNull(5) ? 0 : readerRecent.GetInt32(5),
+                    TablesAffected = readerRecent.IsDBNull(5) ? 0 : Convert.ToInt32(readerRecent.GetValue(5)),
                     ErrorMessage = readerRecent.IsDBNull(6) ? null : readerRecent.GetString(6)
                 });
             }
@@ -136,9 +136,9 @@ public class MonitoringService
             await using var readerStats = await cmdStats.ExecuteReaderAsync();
             if (await readerStats.ReadAsync())
             {
-                status.Statistics.TotalToday = readerStats.IsDBNull(0) ? 0 : readerStats.GetInt32(0);
-                status.Statistics.SuccessToday = readerStats.IsDBNull(1) ? 0 : readerStats.GetInt32(1);
-                status.Statistics.FailedToday = readerStats.IsDBNull(2) ? 0 : readerStats.GetInt32(2);
+                status.Statistics.TotalToday = Convert.ToInt32(readerStats.GetValue(0));
+                status.Statistics.SuccessToday = Convert.ToInt32(readerStats.GetValue(1));
+                status.Statistics.FailedToday = Convert.ToInt32(readerStats.GetValue(2));
             }
             await readerStats.CloseAsync();
 
@@ -146,7 +146,8 @@ public class MonitoringService
             await using var cmdTotal = new SqlCommand(
                 "SELECT COUNT(*) FROM MQTT.ReceivedMessages",
                 connection);
-            status.Statistics.TotalAllTime = (int)(await cmdTotal.ExecuteScalarAsync() ?? 0);
+            var totalResult = await cmdTotal.ExecuteScalarAsync();
+            status.Statistics.TotalAllTime = totalResult != null ? Convert.ToInt32(totalResult) : 0;
 
             return status;
         }
@@ -290,7 +291,7 @@ public class MonitoringService
                     Type = reader.GetString(1),
                     Topic = reader.GetString(2),
                     Details = reader.IsDBNull(3) ? null : reader.GetString(3),
-                    Success = reader.GetInt32(4) == 1
+                    Success = Convert.ToInt32(reader.GetValue(4)) == 1
                 });
             }
         }

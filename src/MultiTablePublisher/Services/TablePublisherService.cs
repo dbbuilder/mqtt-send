@@ -1,5 +1,5 @@
 using System.Data;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using System.Text;
 using System.Text.Json;
 using MQTTnet;
@@ -109,6 +109,12 @@ namespace MultiTablePublisher.Services
         {
             // Get all columns from field mapping
             var columns = string.Join(", ", _sourceConfig.FieldMapping.Keys.Select(k => $"t.{k}"));
+
+            // If no field mapping, select all columns
+            if (string.IsNullOrWhiteSpace(columns))
+            {
+                columns = "t.*";
+            }
 
             var sql = $@"
                 SELECT TOP {_sourceConfig.Query.BatchSize}

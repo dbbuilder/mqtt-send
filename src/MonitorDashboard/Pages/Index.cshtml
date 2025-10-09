@@ -105,56 +105,166 @@
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0"><i class="bi bi-lightning-fill"></i> Quick Test Actions</h5>
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="bi bi-lightning-fill"></i> Interactive Testing Panel</h5>
+                    <small>Click buttons to test different parts of the MQTT bridge system</small>
                 </div>
                 <div class="card-body">
                     <div class="row">
+                        <!-- RECEIVER TESTS -->
                         <div class="col-md-4">
-                            <h6>Send Test Messages (MQTT)</h6>
-                            <div class="d-grid gap-2">
-                                <button class="btn btn-primary" onclick="sendTestMessage('temperature', 72.5)">
-                                    <i class="bi bi-thermometer-half"></i> Normal Temp (72°F)
-                                </button>
-                                <button class="btn btn-warning" onclick="sendTestMessage('temperature', 85.0)">
-                                    <i class="bi bi-thermometer-high"></i> High Temp (85°F - Alert)
-                                </button>
-                                <button class="btn btn-info" onclick="sendTestMessage('pressure', 101.3)">
-                                    <i class="bi bi-speedometer"></i> Pressure (101.3 kPa)
-                                </button>
+                            <div class="card border-primary">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-arrow-down-circle"></i> TEST RECEIVER
+                                        <small class="d-block" style="font-size: 0.75rem; opacity: 0.9;">MQTT → Database</small>
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <p class="small text-muted mb-3">
+                                        <strong>What this tests:</strong> Receiver subscribing to MQTT topics and storing messages in RawSensorData table
+                                    </p>
+                                    <div class="d-grid gap-2">
+                                        <button class="btn btn-primary" onclick="sendTestMessage('temperature', 72.5)">
+                                            <i class="bi bi-thermometer-half"></i> Send Temp 72°F
+                                            <small class="d-block">→ test/temperature/TEST1</small>
+                                        </button>
+                                        <button class="btn btn-warning text-dark" onclick="sendTestMessage('temperature', 85.0)">
+                                            <i class="bi bi-thermometer-high"></i> Send HIGH Temp 85°F
+                                            <small class="d-block">→ test/temperature/TEST1</small>
+                                        </button>
+                                        <button class="btn btn-info" onclick="sendTestMessage('pressure', 101.3)">
+                                            <i class="bi bi-speedometer"></i> Send Pressure 101 kPa
+                                            <small class="d-block">→ test/pressure/TEST1</small>
+                                        </button>
+                                    </div>
+                                    <div class="mt-3 small">
+                                        <strong>✓ Look for:</strong>
+                                        <ul class="mb-0" style="font-size: 0.85rem;">
+                                            <li>Blue "RECEIVED" badge in Live Flow</li>
+                                            <li>New row in RawSensorData table</li>
+                                            <li>Receiver message count increases</li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+
+                        <!-- PUBLISHER TESTS -->
                         <div class="col-md-4">
-                            <h6>Trigger Publisher Events</h6>
-                            <div class="d-grid gap-2">
-                                <button class="btn btn-success" onclick="triggerPublisher('TableA')">
-                                    <i class="bi bi-database"></i> Publish from TableA
-                                </button>
-                                <button class="btn btn-success" onclick="triggerPublisher('TableB')">
-                                    <i class="bi bi-database"></i> Publish from TableB
-                                </button>
-                                <button class="btn btn-success" onclick="triggerPublisher('TableC')">
-                                    <i class="bi bi-database"></i> Publish from TableC
-                                </button>
+                            <div class="card border-success">
+                                <div class="card-header bg-success text-white">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-arrow-up-circle"></i> TEST PUBLISHER
+                                        <small class="d-block" style="font-size: 0.75rem; opacity: 0.9;">Database → MQTT</small>
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <p class="small text-muted mb-3">
+                                        <strong>What this tests:</strong> Publisher reading from TableA/B/C and publishing to MQTT (waits ~2 sec for polling)
+                                    </p>
+                                    <div class="d-grid gap-2">
+                                        <button class="btn btn-success" onclick="triggerPublisher('TableA')">
+                                            <i class="bi bi-database"></i> Insert into TableA
+                                            <small class="d-block">→ data/tableA/1 or /2</small>
+                                        </button>
+                                        <button class="btn btn-success" onclick="triggerPublisher('TableB')">
+                                            <i class="bi bi-database"></i> Insert into TableB
+                                            <small class="d-block">→ data/tableB/1 or /2</small>
+                                        </button>
+                                        <button class="btn btn-success" onclick="triggerPublisher('TableC')">
+                                            <i class="bi bi-database"></i> Insert into TableC
+                                            <small class="d-block">→ data/tableC/1 or /2</small>
+                                        </button>
+                                    </div>
+                                    <div class="mt-3 small">
+                                        <strong>✓ Look for (after 2-3 sec):</strong>
+                                        <ul class="mb-0" style="font-size: 0.85rem;">
+                                            <li>Red "PUBLISHED" badge in Live Flow</li>
+                                            <li>New row in SentRecords table</li>
+                                            <li>Publisher message count increases</li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+
+                        <!-- FULL ROUND-TRIP TESTS -->
                         <div class="col-md-4">
-                            <h6>Bulk Operations</h6>
-                            <div class="d-grid gap-2">
-                                <button class="btn btn-secondary" onclick="sendBulkMessages(5)">
-                                    <i class="bi bi-arrow-repeat"></i> Send 5 Random Messages
-                                </button>
-                                <button class="btn btn-secondary" onclick="sendBulkMessages(10)">
-                                    <i class="bi bi-arrow-repeat"></i> Send 10 Random Messages
-                                </button>
-                                <button class="btn btn-danger" onclick="clearAllData()">
-                                    <i class="bi bi-trash"></i> Clear All Test Data
-                                </button>
+                            <div class="card border-secondary">
+                                <div class="card-header bg-secondary text-white">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-arrow-repeat"></i> FULL ROUND-TRIP
+                                        <small class="d-block" style="font-size: 0.75rem; opacity: 0.9;">DB → MQTT → DB</small>
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <p class="small text-muted mb-3">
+                                        <strong>What this tests:</strong> Complete bidirectional flow - data flows through entire system
+                                    </p>
+                                    <div class="d-grid gap-2">
+                                        <button class="btn btn-secondary" onclick="sendBulkMessages(5)">
+                                            <i class="bi bi-stack"></i> Send 5 MQTT Messages
+                                            <small class="d-block">Tests RECEIVER only</small>
+                                        </button>
+                                        <button class="btn btn-secondary" onclick="sendBulkMessages(10)">
+                                            <i class="bi bi-stack"></i> Send 10 MQTT Messages
+                                            <small class="d-block">Tests RECEIVER stress</small>
+                                        </button>
+                                        <button class="btn btn-outline-secondary" onclick="viewLatestData()">
+                                            <i class="bi bi-eye"></i> View Latest Data
+                                            <small class="d-block">Check RawSensorData</small>
+                                        </button>
+                                    </div>
+                                    <div class="mt-3 small">
+                                        <strong>✓ Full flow (Publisher + Receiver):</strong>
+                                        <ul class="mb-0" style="font-size: 0.85rem;">
+                                            <li>Red "PUBLISHED" → Blue "RECEIVED"</li>
+                                            <li>Data in TableA → SentRecords → ReceivedMessages → RawSensorData</li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Status Messages -->
                     <div class="mt-3">
-                        <div id="actionStatus" class="alert alert-info" style="display: none;"></div>
+                        <div id="actionStatus" class="alert alert-info" style="display: none; white-space: pre-wrap;"></div>
+                    </div>
+
+                    <!-- Helper Text -->
+                    <div class="mt-3">
+                        <div class="alert alert-light border">
+                            <h6 class="mb-2"><i class="bi bi-info-circle"></i> How to Use These Tests:</h6>
+                            <div class="row small">
+                                <div class="col-md-4">
+                                    <strong>Test Receiver (MQTT→DB):</strong>
+                                    <ol class="mb-0 ps-3">
+                                        <li>Click any blue button</li>
+                                        <li>Watch for blue "RECEIVED" badge below</li>
+                                        <li>Check Receiver stats increase</li>
+                                    </ol>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Test Publisher (DB→MQTT):</strong>
+                                    <ol class="mb-0 ps-3">
+                                        <li>Click any green button</li>
+                                        <li>Wait 2-3 seconds</li>
+                                        <li>Watch for red "PUBLISHED" badge</li>
+                                        <li>Then blue "RECEIVED" if receiver configured</li>
+                                    </ol>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Full Round-Trip:</strong>
+                                    <ol class="mb-0 ps-3">
+                                        <li>Click green "Insert into TableA"</li>
+                                        <li>See BOTH red + blue badges</li>
+                                        <li>Verify complete data flow</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -459,15 +569,24 @@
             try {
                 showActionStatus(`Sending ${sensorType} message with value ${value}...`, 'info');
 
-                const response = await fetch('/api/test/send-message', {
+                const topic = `test/${sensorType}/TEST1`;
+                const unit = sensorType === 'temperature' ? 'F' : sensorType === 'pressure' ? 'kPa' : 'GPM';
+
+                const response = await fetch('/api/test/send-mqtt', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sensorType, value })
+                    body: JSON.stringify({
+                        topic: topic,
+                        deviceId: 'TEST1',
+                        sensorType: sensorType,
+                        value: value,
+                        unit: unit
+                    })
                 });
 
                 if (response.ok) {
                     const result = await response.json();
-                    showActionStatus(`✓ Message sent successfully to topic: ${result.topic}`, 'success');
+                    showActionStatus(result.message + (result.details ? '\n' + result.details : ''), result.success ? 'success' : 'danger');
                 } else {
                     showActionStatus(`✗ Failed to send message: ${response.statusText}`, 'danger');
                 }
@@ -478,19 +597,25 @@
 
         async function triggerPublisher(tableName) {
             try {
-                showActionStatus(`Triggering publisher for ${tableName}...`, 'info');
+                showActionStatus(`Inserting test data into ${tableName}...`, 'info');
 
-                const response = await fetch('/api/test/trigger-publisher', {
+                const monitorId = Math.random() < 0.5 ? 1 : 2;
+
+                const response = await fetch('/api/test/insert-data', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tableName })
+                    body: JSON.stringify({
+                        tableName: tableName,
+                        monitorId: monitorId
+                    })
                 });
 
                 if (response.ok) {
                     const result = await response.json();
-                    showActionStatus(`✓ Publisher triggered for ${tableName}: ${result.recordsPublished} records published`, 'success');
+                    showActionStatus(result.message + (result.details ? '\n' + result.details : ''), result.success ? 'success' : 'danger');
+                    showActionStatus('Publisher will pick this up in ~2 seconds...', 'info');
                 } else {
-                    showActionStatus(`✗ Failed to trigger publisher: ${response.statusText}`, 'danger');
+                    showActionStatus(`✗ Failed to insert data: ${response.statusText}`, 'danger');
                 }
             } catch (error) {
                 showActionStatus(`✗ Error: ${error.message}`, 'danger');
@@ -501,18 +626,37 @@
             try {
                 showActionStatus(`Sending ${count} random messages...`, 'info');
 
-                const response = await fetch('/api/test/send-bulk', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ count })
-                });
+                const types = ['temperature', 'pressure'];
+                let sent = 0;
 
-                if (response.ok) {
-                    const result = await response.json();
-                    showActionStatus(`✓ Sent ${result.messagesSent} random messages successfully`, 'success');
-                } else {
-                    showActionStatus(`✗ Failed to send bulk messages: ${response.statusText}`, 'danger');
+                for (let i = 0; i < count; i++) {
+                    const type = types[Math.floor(Math.random() * types.length)];
+                    const value = type === 'temperature'
+                        ? 70 + Math.random() * 20 // 70-90°F
+                        : 100 + Math.random() * 5; // 100-105 kPa
+
+                    const topic = `test/${type}/TEST${(i % 2) + 1}`;
+                    const unit = type === 'temperature' ? 'F' : 'kPa';
+
+                    const response = await fetch('/api/test/send-mqtt', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            topic: topic,
+                            deviceId: `TEST${(i % 2) + 1}`,
+                            sensorType: type,
+                            value: value,
+                            unit: unit
+                        })
+                    });
+
+                    if (response.ok) sent++;
+
+                    // Small delay to avoid overwhelming
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
+
+                showActionStatus(`✓ Sent ${sent}/${count} messages successfully`, 'success');
             } catch (error) {
                 showActionStatus(`✗ Error: ${error.message}`, 'danger');
             }
@@ -532,9 +676,30 @@
 
                 if (response.ok) {
                     const result = await response.json();
-                    showActionStatus(`✓ Cleared all test data: ${result.recordsDeleted} records deleted`, 'success');
+                    showActionStatus(result.message, result.success ? 'success' : 'danger');
                 } else {
                     showActionStatus(`✗ Failed to clear data: ${response.statusText}`, 'danger');
+                }
+            } catch (error) {
+                showActionStatus(`✗ Error: ${error.message}`, 'danger');
+            }
+        }
+
+        async function viewLatestData() {
+            try {
+                showActionStatus('Fetching latest received data...', 'info');
+
+                const response = await fetch('/api/test/latest-data');
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success && result.details) {
+                        showActionStatus(`Latest received data:\n${result.details}`, 'info');
+                    } else {
+                        showActionStatus(result.message, 'warning');
+                    }
+                } else {
+                    showActionStatus(`✗ Failed to fetch data: ${response.statusText}`, 'danger');
                 }
             } catch (error) {
                 showActionStatus(`✗ Error: ${error.message}`, 'danger');

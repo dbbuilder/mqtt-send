@@ -3,7 +3,9 @@ using MQTTnet.Client;
 using MQTTnet.Extensions.ManagedClient;
 using ReceiverService.Models;
 using ReceiverService.Services;
+using Microsoft.Data.SqlClient;
 using System.Text.Json;
+using System.Data;
 
 namespace ReceiverService
 {
@@ -77,11 +79,11 @@ namespace ReceiverService
 
             _logger.LogInformation("Loading receiver configurations from database...");
 
-            using var connection = new System.Data.SqlClient.SqlConnection(connectionString);
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync(cancellationToken);
 
-            using var command = new System.Data.SqlClient.SqlCommand("MQTT.GetActiveReceiverConfigs", connection);
-            command.CommandType = System.Data.CommandType.StoredProcedure;
+            using var command = new SqlCommand("MQTT.GetActiveReceiverConfigs", connection);
+            command.CommandType = CommandType.StoredProcedure;
 
             _receiverConfigs.Clear();
 
@@ -184,11 +186,11 @@ namespace ReceiverService
         {
             var connectionString = _configuration.GetConnectionString("MqttBridge")!;
 
-            using var connection = new System.Data.SqlClient.SqlConnection(connectionString);
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync(cancellationToken);
 
-            using var command = new System.Data.SqlClient.SqlCommand("MQTT.GetReceiverConfigCount", connection);
-            command.CommandType = System.Data.CommandType.StoredProcedure;
+            using var command = new SqlCommand("MQTT.GetReceiverConfigCount", connection);
+            command.CommandType = CommandType.StoredProcedure;
 
             var newCount = (int)(await command.ExecuteScalarAsync(cancellationToken) ?? 0);
 
@@ -242,14 +244,80 @@ namespace ReceiverService
         {
             _logger.LogInformation("Processing message with config: {ConfigName}", config.ConfigName);
 
-            var messageProcessor = new MessageProcessor(
-                _logger,
-                _configuration.GetConnectionString("MqttBridge")!
-            );
+            long messageId = 0;
+            try
+            {
+                // Log message receipt to ReceivedMessages table
+                await using var connection = new SqlConnection(_configuration.GetConnectionString("MqttBridge"));
+                await connection.OpenAsync();
 
-            var successCount = await messageProcessor.ProcessMessageAsync(config, topic, payload);
+                // Insert initial tracking record
+                var insertCmd = new SqlCommand(@"
+                    INSERT INTO MQTT.ReceivedMessages (ReceiverConfigId, Topic, Payload, QoS, ReceivedAt, Status)
+                    OUTPUT INSERTED.Id
+                    VALUES (@ConfigId, @Topic, @Payload, @QoS, GETUTCDATE(), 'Processing')",
+                    connection);
+                insertCmd.Parameters.AddWithValue("@ConfigId", config.Id);
+                insertCmd.Parameters.AddWithValue("@Topic", topic);
+                insertCmd.Parameters.AddWithValue("@Payload", payload);
+                insertCmd.Parameters.AddWithValue("@QoS", config.QoS);
 
-            _logger.LogInformation("Message processed successfully to {Count} table(s)", successCount);
+                var result = await insertCmd.ExecuteScalarAsync();
+                messageId = result != null ? Convert.ToInt64(result) : 0;
+
+                // Process the message
+                var messageProcessor = new MessageProcessor(
+                    _logger,
+                    _configuration.GetConnectionString("MqttBridge")!
+                );
+
+                var successCount = await messageProcessor.ProcessMessageAsync(config, topic, payload);
+
+                // Update tracking record with success
+                var updateCmd = new SqlCommand(@"
+                    UPDATE MQTT.ReceivedMessages
+                    SET ProcessedAt = GETUTCDATE(),
+                        Status = 'Success',
+                        TargetTablesProcessed = @Count
+                    WHERE Id = @Id",
+                    connection);
+                updateCmd.Parameters.AddWithValue("@Id", messageId);
+                updateCmd.Parameters.AddWithValue("@Count", successCount);
+                await updateCmd.ExecuteNonQueryAsync();
+
+                _logger.LogInformation("Message processed successfully to {Count} table(s)", successCount);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing message");
+
+                // Update tracking record with failure
+                if (messageId > 0)
+                {
+                    try
+                    {
+                        await using var connection = new SqlConnection(_configuration.GetConnectionString("MqttBridge"));
+                        await connection.OpenAsync();
+
+                        var updateCmd = new SqlCommand(@"
+                            UPDATE MQTT.ReceivedMessages
+                            SET ProcessedAt = GETUTCDATE(),
+                                Status = 'Failed',
+                                ErrorMessage = @Error
+                            WHERE Id = @Id",
+                            connection);
+                        updateCmd.Parameters.AddWithValue("@Id", messageId);
+                        updateCmd.Parameters.AddWithValue("@Error", ex.Message);
+                        await updateCmd.ExecuteNonQueryAsync();
+                    }
+                    catch (Exception logEx)
+                    {
+                        _logger.LogError(logEx, "Error updating failure status in ReceivedMessages");
+                    }
+                }
+
+                throw;
+            }
         }
 
         private bool TopicMatches(string actualTopic, string pattern)

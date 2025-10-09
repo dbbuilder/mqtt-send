@@ -3,8 +3,17 @@ using MonitorDashboard.Hubs;
 using Serilog;
 using Serilog.Sinks.MSSqlServer;
 
+// Build configuration to read connection string
+var configuration = new ConfigurationBuilder()
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile("appsettings.Azure.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables()
+    .Build();
+
 // Configure Serilog
-var connectionString = "Server=localhost,1433;Database=MqttBridge;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True;Encrypt=False;";
+var connectionString = configuration.GetConnectionString("MqttBridge")
+    ?? throw new InvalidOperationException("Connection string 'MqttBridge' not found.");
 
 var columnOptions = new ColumnOptions();
 columnOptions.Store.Remove(StandardColumn.Properties);
@@ -35,6 +44,9 @@ Log.Logger = new LoggerConfiguration()
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure builder to load Azure settings
+builder.Configuration.AddJsonFile("appsettings.Azure.json", optional: true, reloadOnChange: true);
+
 // Add Serilog
 builder.Host.UseSerilog();
 
@@ -45,6 +57,9 @@ builder.Services.AddSignalR();
 
 // Register monitoring service
 builder.Services.AddSingleton<MonitoringService>();
+
+// Register testing service
+builder.Services.AddSingleton<TestingService>();
 
 // Register background service for broadcasting updates
 builder.Services.AddHostedService<MonitorBroadcastService>();

@@ -16,6 +16,10 @@ try
     Log.Information("Starting Multi-Table MQTT Publisher");
 
     IHost host = Host.CreateDefaultBuilder(args)
+        .ConfigureAppConfiguration((context, config) =>
+        {
+            config.AddJsonFile("appsettings.Azure.json", optional: true, reloadOnChange: true);
+        })
         .UseSerilog()
         .ConfigureServices(services =>
         {

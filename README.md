@@ -13,55 +13,76 @@ A production-ready .NET 9.0 system for seamless integration between MQTT messagi
 
 ## 🚀 Quick Start
 
-### 3-Minute Demo
+### Local Demo (3 minutes)
 ```powershell
 cd D:\dev2\clients\mbox\mqtt-send
 
 # First time setup (once)
-.\demo.ps1 -Action init-db
+scripts/demo/demo.ps1 -Action init-db
 
-# Run complete demo
-.\demo.ps1 -Action full-demo
+# Run complete demo with dashboard
+scripts/demo/demo.ps1 -Action full-demo-with-dashboard
 ```
 
 This will:
-1. Clear test data
-2. Start Receiver service (new window)
-3. Send 4 test MQTT messages
-4. Display results showing one-to-many routing
+1. Start Receiver service (MQTT → Database)
+2. Start Publisher service (Database → MQTT)
+3. Start Monitor Dashboard (http://localhost:5000)
+4. Send test messages
+5. Display real-time results
 
-**See:** [QUICK_START_DEMO.md](QUICK_START_DEMO.md) for detailed walkthrough
+**See:** [docs/guides/QUICK_START_DEMO.md](docs/guides/QUICK_START_DEMO.md) for detailed walkthrough
+
+### Azure Deployment (Production)
+```bash
+# Deploy entire system to Azure
+./scripts/deployment/Deploy-Azure-CLI.sh
+```
+
+**See:** [docs/deployment/AZURE_CLI_DEPLOYMENT.md](docs/deployment/AZURE_CLI_DEPLOYMENT.md) for full guide
 
 ---
 
 ## 📊 System Architecture
 
 ```
-┌─────────────────────┐
-│  External MQTT      │
-│  Broker             │
-│  (localhost:1883)   │
-└──────────┬──────────┘
-           │
-           │ Subscribe                     Publish
-           │                                  ▲
-    ┌──────▼────────┐                        │
+                           ┌──────────────────────┐
+                           │  Monitor Dashboard   │
+                           │  (Real-time UI)      │
+                           │  localhost:5000      │
+                           └──────────┬───────────┘
+                                      │ SignalR (WebSocket)
+                                      │
+┌─────────────────────┐              │
+│  External MQTT      │              │
+│  Broker (Mosquitto) │◄─────────────┴──────────────┐
+│  localhost:1883     │                              │
+└──────────┬──────────┘                              │
+           │                                          │
+           │ Subscribe                     Publish    │
+           │                                  ▲       │
+    ┌──────▼────────┐                        │       │
     │  MQTT         │                  ┌─────┴────────┐
     │  Receiver     │                  │  MQTT        │
     │  Service      │                  │  Publisher   │
     └───────┬───────┘                  │  Service     │
             │                          └─────▲────────┘
             │                                │
-            │ One-to-Many Routing            │ Change Detection
+            │ One-to-Many Routing            │ Change Tracking
             │                                │
-    ┌───────▼────────────────────────────────┴───┐
-    │           SQL Server Database              │
-    │  • ReceiverConfig (topics)                 │
-    │  • TopicTableMapping (routing)             │
-    │  • RawSensorData, Alerts, Aggregates       │
-    │  • Change Tracking (for publisher)         │
-    └────────────────────────────────────────────┘
+    ┌───────▼────────────────────────────────┴────┐
+    │      SQL Server Database (or Azure SQL)     │
+    │  • ReceiverConfig (topics)                  │
+    │  • TopicTableMapping (routing)              │
+    │  • RawSensorData, Alerts, Aggregates        │
+    │  • Change Tracking (for publisher)          │
+    │  • Logging.ApplicationLogs (Serilog)        │
+    └─────────────────────────────────────────────┘
 ```
+
+### Deployment Options
+- **Local:** SQL Server (Docker), Mosquitto (Docker), .NET services (localhost)
+- **Azure:** Azure SQL Database, Container Instance (Mosquitto), App Services (.NET services)
 
 ---
 
@@ -82,6 +103,14 @@ This will:
 - **Auto-Reconnect** - Exponential backoff for resilience
 - **JSON Serialization** - Automatic payload generation
 - **Configurable Polling** - Adjustable intervals per table
+
+### Monitor Dashboard (Web UI)
+- **Real-time Updates** - SignalR WebSocket updates every 5 seconds
+- **System Status** - Receiver/Publisher ONLINE/OFFLINE indicators
+- **Quick Test Buttons** - Send MQTT, trigger publisher, bulk operations
+- **Configuration Management** - Add/edit receiver configs with templates
+- **Live Message Flow** - Watch messages flowing in real-time
+- **Statistics** - Message counts, success rates, recent activity
 
 ---
 

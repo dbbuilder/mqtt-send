@@ -2,8 +2,17 @@ using ReceiverService;
 using Serilog;
 using Serilog.Sinks.MSSqlServer;
 
+// Build configuration to read connection string
+var configuration = new ConfigurationBuilder()
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile("appsettings.Azure.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables()
+    .Build();
+
 // Configure Serilog
-var connectionString = "Server=localhost,1433;Database=MqttBridge;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True;Encrypt=False;";
+var connectionString = configuration.GetConnectionString("MqttBridge")
+    ?? throw new InvalidOperationException("Connection string 'MqttBridge' not found.");
 
 var columnOptions = new ColumnOptions();
 columnOptions.Store.Remove(StandardColumn.Properties);
@@ -36,6 +45,9 @@ try
     Log.Information("Starting MQTT Receiver Service");
 
     var builder = Host.CreateApplicationBuilder(args);
+
+    // Configure builder to load Azure settings
+    builder.Configuration.AddJsonFile("appsettings.Azure.json", optional: true, reloadOnChange: true);
 
     // Add Serilog
     builder.Services.AddSerilog();
